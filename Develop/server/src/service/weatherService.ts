@@ -1,11 +1,32 @@
 import dotenv from 'dotenv';
-import fetch from 'node-fetch'; // Make sure you installed this
+import fetch from 'node-fetch'; // Ensure this is installed
 dotenv.config();
 
 // TODO: Define an interface for the Coordinates object
 interface Coordinates {
   lat: number;
   lon: number;
+}
+
+// TODO: Define an interface for the Weather API response
+interface WeatherApiResponse {
+  list: {
+    dt: number;
+    main: {
+      temp: number;
+      humidity: number;
+    };
+    weather: {
+      icon: string;
+      description: string;
+    }[];
+    wind: {
+      speed: number;
+    };
+  }[];
+  city: {
+    name: string;
+  };
 }
 
 // TODO: Define a class for the Weather object
@@ -50,7 +71,7 @@ class WeatherService {
     const url = this.buildGeocodeQuery(query);
     const response = await fetch(url);
     const data = await response.json();
-    if (!data.length) throw new Error('City not found.');
+    if (!Array.isArray(data) || !data.length) throw new Error('City not found.');
     return data[0];
   }
 
@@ -79,15 +100,19 @@ class WeatherService {
   }
 
   // TODO: Create fetchWeatherData method
-  private async fetchWeatherData(coordinates: Coordinates): Promise<any> {
+  private async fetchWeatherData(coordinates: Coordinates): Promise<WeatherApiResponse> {
     const url = this.buildWeatherQuery(coordinates);
     const response = await fetch(url);
-    const data = await response.json();
+    const data = (await response.json()) as WeatherApiResponse; // Type assertion
+
+    if (!data || !data.list) {
+      throw new Error('Invalid weather data received.');
+    }
     return data;
   }
 
   // TODO: Build parseCurrentWeather method
-  private parseCurrentWeather(response: any): Weather {
+  private parseCurrentWeather(response: WeatherApiResponse): Weather {
     const current = response.list[0];
     return new Weather(
       response.city.name,
@@ -101,7 +126,7 @@ class WeatherService {
   }
 
   // TODO: Complete buildForecastArray method
-  private buildForecastArray(currentWeather: Weather, weatherData: any[]): Weather[] {
+  private buildForecastArray(currentWeather: Weather, weatherData: WeatherApiResponse['list']): Weather[] {
     const forecastArray: Weather[] = [];
 
     for (let i = 7; i < weatherData.length; i += 8) { // every 8 items = 1 day
